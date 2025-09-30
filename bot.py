@@ -108,3 +108,4 @@ def handle_copy_text(call):
     bot.answer_callback_query(call.id, "```تم نسخ النص بنجاح .```")
 
 bot.infinity_polling()
+
