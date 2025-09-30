@@ -1,68 +1,98 @@
-import logging
+# من شغل NaDaR، والزين ما يجي صدفة.
+# ورى هالترتيب واحد اسمه NaDaR: @@Ky_n0
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+import telebot
+from telebot import types
+import requests
+import io
 
-# Enable logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+NaDaR_BOT_TOKEN = "7632463880:AAGpV9McNIbGDBfvOnK1HZIdLp6zAgKSkro"
+NaDaR_API_URL = "https://477h9ikcl5zx.manus.space/API.php"
 
-logger = logging.getLogger(__name__)
+NaDaR_bot = telebot.TeleBot(NaDaR_BOT_TOKEN)
 
+def NaDaR_start_keyboard():
+    NaDaR_markup = types.InlineKeyboardMarkup(row_width=2)
+    NaDaR_markup.add(
+        types.InlineKeyboardButton("- اضفني لمجموعتك .", url="https://t.me/asaslybot?startgroup=true")
+    )
+    NaDaR_markup.row(
+        types.InlineKeyboardButton("- المطور .", url="https://t.me/@Ky_n0"),
+        types.InlineKeyboardButton("- تنصيب بوت مشابه .", url="https://t.me/Ky_n0")
+    )
+    return NaDaR_markup
 
-# Define a few command handlers. These usually take the two arguments update and
-# context. Error handlers also receive the raised TelegramError object in error.
-def start(update, context):
-    """Send a message when the command /start is issued."""
-    update.message.reply_text('Hey this is your bot!')
+@NaDaR_bot.message_handler(commands=['start'])
+def NaDaR_start_handler(NaDaR_message):
+    NaDaR_bot.send_message(NaDaR_message.chat.id,
+                     "- بدون مقدمات، هذا بوت تحميل .\n"
+                     "- كتب يوت وخل الباقي عليه .\n"
+                     "- مرتب، ميتعبك، ويفيدك .\n"
+                     "- يشتغل خاص وكروب، فويزات نظيفة .",
+                     reply_markup=NaDaR_start_keyboard())
 
+@NaDaR_bot.message_handler(func=lambda NaDaR_msg: NaDaR_msg.text and NaDaR_msg.text.lower().startswith("يوت "))
+def NaDaR_search_youtube(NaDaR_message):
+    NaDaR_query = NaDaR_message.text[4:].strip()
+    if not NaDaR_query:
+        NaDaR_bot.reply_to(NaDaR_message, "- اكتب اسم الأغنية بعد كلمة يوت .")
+        return
 
-def help(update, context):
-    """Send a message when the command /help is issued."""
-    update.message.reply_text('Currently I am in Alpha stage, help me also!')
+    NaDaR_bot.send_chat_action(NaDaR_message.chat.id, 'typing')
+    NaDaR_bot.send_message(NaDaR_message.chat.id, "جار سحب البيانات من سيرفر NaDaR...")
 
-def piracy(update, context):
-    update.message.reply_text('Ahhan, FBI wants to know your location!')
+    try:
+        NaDaR_resp = requests.get(f"{NaDaR_API_URL}?prompt=يوت {NaDaR_query}", timeout=20)
+        NaDaR_data = NaDaR_resp.json()
 
+        if "search_results" not in NaDaR_data or len(NaDaR_data["search_results"]) == 0:
+            NaDaR_bot.reply_to(NaDaR_message, "- ما لقيت نتائج تناسب طلبك، جرب بعد شوي .")
+            return
 
-def echo(update, context):
-    """Echo the user message."""
-    update.message.reply_text(update.message.text)
+        NaDaR_results = NaDaR_data["search_results"][:1]
+        NaDaR_video_id = NaDaR_results[0]['video_id']
 
+        NaDaR_bot.send_chat_action(NaDaR_message.chat.id, 'upload_audio')
+        NaDaR_bot.send_message(NaDaR_message.chat.id, "جار تحميل الملف من سيرفر NaDaR...")
 
-def error(update, context):
-    """Log Errors caused by Updates."""
-    logger.warning('Update "%s" caused error "%s"', update, context.error)
+        NaDaR_mp3_resp = requests.get(f"{NaDaR_API_URL}?prompt={NaDaR_video_id}", timeout=60)
+        NaDaR_mp3_data = NaDaR_mp3_resp.json()
 
+        if NaDaR_mp3_data.get("status") == "success":
+            NaDaR_mp3_url = NaDaR_mp3_data["mp3_link"]
+            NaDaR_title = NaDaR_mp3_data["title"]
+            NaDaR_audio_data = requests.get(NaDaR_mp3_url, timeout=60).content
+            NaDaR_audio_file = io.BytesIO(NaDaR_audio_data)
+            NaDaR_audio_file.name = f"{NaDaR_title}.mp3"
 
-def main():
-    """Start the bot."""
-    # Create the Updater and pass it your bot's token.
-    # Make sure to set use_context=True to use the new context based callbacks
-    # Post version 12 this will no longer be necessary
-    updater = Updater("//TOKEN//", use_context=True)
+            NaDaR_thumb_url = NaDaR_mp3_data.get("thumbnail", f"https://img.youtube.com/vi/{NaDaR_video_id}/hqdefault.jpg")
+            NaDaR_thumb_data = requests.get(NaDaR_thumb_url, timeout=30).content
+            NaDaR_thumb_file = io.BytesIO(NaDaR_thumb_data)
+            NaDaR_thumb_file.name = "thumb.jpg"
 
-    # Get the dispatcher to register handlers
-    dp = updater.dispatcher
+            NaDaR_user_id = NaDaR_message.from_user.id
+            NaDaR_username = NaDaR_message.from_user.first_name
+            NaDaR_user_mention = f"[{NaDaR_username}](tg://user?id={NaDaR_user_id})"
 
-    # on different commands - answer in Telegram
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("help", help))
-    dp.add_handler(CommandHandler("piracy", piracy))
+            NaDaR_caption = (
+                f"- اسم الأغنية: {NaDaR_title}\n\n"
+                f"- ورى هالترتيب واحد اسمه NaDaR: @@Ky_n0"
+            )
 
-    # on noncommand i.e message - echo the message on Telegram
-    dp.add_handler(MessageHandler(Filters.text, echo))
+            NaDaR_bot.send_audio(
+                chat_id=NaDaR_message.chat.id,
+                audio=NaDaR_audio_file,
+                caption=NaDaR_caption,
+                parse_mode="Markdown",
+                thumb=NaDaR_thumb_file,
+                reply_to_message_id=NaDaR_message.message_id,
+                performer="Enjoy Music",
+                title=NaDaR_title
+            )
+        else:
+            NaDaR_bot.reply_to(NaDaR_message, "- ما قدرنا نحمل الملف، جرب مرة ثانية .")
 
-    # log all errors
-    dp.add_error_handler(error)
+    except Exception as NaDaR_e:
+        NaDaR_bot.reply_to(NaDaR_message, f"- صار خطأ أثناء التحميل: {str(NaDaR_e)} .")
 
-    # Start the Bot
-    updater.start_polling()
-
-    # Run the bot until you press Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT. This should be used most of the time, since
-    # start_polling() is non-blocking and will stop the bot gracefully.
-    updater.idle()
-
-
-if __name__ == '__main__':
-    main()
+NaDaR_bot.polling(none_stop=True)
